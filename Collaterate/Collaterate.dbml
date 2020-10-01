@@ -1,0 +1,238 @@
+Project Collaterate {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # Collaterate
+  **Testing DBDocs program
+  '''
+}
+
+enum task_status {  
+  NOT_STARTED
+  COMPLETE
+  PAUSED
+  IN_PROGRESS
+}
+enum rework_status {
+  REWORK_NEEDED
+  REWORK_COMPLETE
+}
+
+Table orders {
+  id int pK
+}
+Table sites {
+  id int PK
+  name varchar
+  sales_rep_id int [ref: < admin_users.id]
+}
+Table order_items {
+  id int pK
+  order_id int [ref: > orders.id]
+  order_item_print_job_classification_id int [ref: - order_item_print_job_classifications.id]
+  order_item_largeformat_print_job_classification_id int [ref: - order_item_largeformat_print_job_classifications.id]
+  system_offering_site_share_id int [ref: > system_offering_site_shares.id]
+  name varchar  
+  job_number int
+  child_job_number int
+}
+Table system_offering_site_shares {
+  id int PK
+  site_id int [ref: > sites.id]
+  
+}
+Table system_offerings {
+  id int PK
+  name varchar
+  product_id varchar
+  print_job_classification_id int [ref: > print_job_classifications.id]
+}
+Table print_job_classifications {
+  id int PK
+  name varchar
+}
+Table order_item_print_job_classifications {
+  id int PK
+  job_cost_price numeric
+  print_job_classification_id int [ref: > print_job_classifications.id]
+}
+Table order_item_largeformat_print_job_classifications {
+  id int PK
+}
+Table production_items {
+  id int PK
+  order_item_id int [ref: - order_items.id]
+  production_print_job_id int
+  parent_id int [ref: > production_items.id, Note: 'Parent of Gang Jobs']
+  name varchar
+  identifier text
+  ship_by timestamp
+  print_by timestamp
+  notes varchar
+  error_description varchar
+}
+Table production_item_reworks {
+  id int PK
+}
+enum production_task_type {
+  PRINTING
+  CUTTING
+  MOUNTING
+  FREE_FORM
+  COMPOSITE
+  LAMINATING
+  OPERATION_DEFINED
+}
+Table production_tasks [Note: 'This is a note of this table'] {
+  id int PK
+  created_on timestamp [note: 'Created at time of ORDER or addition by CST in admin']
+  order_item_id int [ref: > order_items.id, note: 'Will be NULL when COMPOSITE']
+  production_item_id int [not null, ref: > production_items.id, note: 'Gang # when a COMPOSITE task']
+  production_task_type_id int [ref: < production_task_types.id]
+  composite_production_task_id int [ref: > production_tasks.id, note: 'COMPOSITE children to assign to Parent']
+  production_group_id int 
+  order_item_sf_pjc_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_lf_pjc_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_sf_pjc_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_lf_pjc_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  completed_by_user_id int [ref: > admin_users.id]
+  completed_by_work_station_id int [ref: > production_work_stations.id]
+  operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  large_format_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  press_color_score_id int 
+  name varchar [note: 'name of Task Type at time of creation']
+  task_code varchar [note: 'Code of Task Type at time of creation']
+  description varchar [note: 'description of Task Type at time of creation']
+  sequence int [not NULL]
+  type production_task_type [note: 'will always be COMPOSITE when Parent task of Ganged children']
+  status task_status
+  rework_status rework_status
+  completed_on datetime
+  work_station_family varchar [note: 'will need follow up on when and why..']
+  estimated_production_time_seconds int
+  actual_production_time_seconds int
+  ready boolean  
+  ready_on timestamp [note: 'timestamp when previous task was completed']
+  assigned_work_station_id int [note: 'need to explore this further along with FAMILY']
+  quoted_production_time_seconds numeric(19,2)
+  assigned_production_sequence int 
+  requires_release boolean [note: 'need to follow up....']
+  pre_production boolean
+  active boolean [note: 'FALSE for COMPOSITE children OR when task is deleted (soft delete)']
+}
+
+Table production_task_types {
+  id PK
+  name varchar
+  code varchar
+  description varchar
+  active boolean
+  is_print boolean
+  pre_produciotn boolean
+  hourly_rate numeric(100,10) [note: 'Not currently getting populated or shown in the UI']
+}
+Table production_task_tag_associations [Note: '''
+  #This setup can allow for MANY-to-MANY relationship with Production Task, but process is to only assign 1
+  '''] {
+  id int PK
+  production_task_type_id int [ref: > production_task_types.id]
+  production_task_tag_id int [ref: > production_task_tags.id, note: 'Production Task Tags is how we establish "Production Departments" from Collaterate']
+}
+Table production_task_tags [note: 'This entity will temporarily hold the concept of "Departments" within Collaterate.  Pace is currently not implementing a fully supported concept of Departments as there isnt as much Granularity (ie. Cutting is assigned to LF - Finishing'] {
+  id int PK
+  name varchar
+  code varchar [note: 'PACE link to pace.activitycode.jcmasterid']
+  color varchar
+  description varchar
+  active boolean
+  hidden boolean
+  dashboard_group boolean
+}
+
+enum event_rework_status {
+  APPROVED
+  PENDING
+  DECLINED
+}
+Table production_work_events {
+  id int PK
+  name varchar
+  production_task_id int [ref: > production_tasks.id]
+  production_task_name varchar
+  production_work_station_id int [ref: > production_work_stations.id]
+  production_item_rework_id int [ref: > production_item_reworks.id]
+  performed_by_user_id int [ref: > admin_users.id]
+  performed_by_name varchar
+  rework_status event_rework_status
+  auto_approved boolean
+  review_on datetime
+  reviewed_by_user_id int [ref: > admin_users.id]
+  reviewed_by_name varchar
+  start_timestamp datetime
+  stop_timestamp datetime
+  duration_seconds int [note: 'Derived from Start/Stope. Will be 0 seconds for cancelled events']
+  notes varchar
+}
+Table production_work_stations {
+  id int PK
+  name varchar
+}
+enum material_types {
+  ACCESSORY
+  ADHESIVE_LAMINATE_A
+  ADHESIVE_LAMINATE_B
+  BACK_LAMINATE
+  FRONT_LAMINATE
+  LAMINATE
+  PRINT_SUBSTRATE
+  MOUNT_SUBSTRATE
+  COVER_PRESS_SHEET
+  PRESS_SHEET
+}
+enum material_unit_of_measures {
+  SQ_FEET
+  EACH
+  LINEAR_FEET
+}
+Table production_task_materials {
+  id int PK
+  created_on datetime [note: 'Timestamp material was consumed on Production Task']
+  production_task_id int [ref: > production_tasks.id]
+  production_item_id int [ref: > production_items.id]
+  production_item_rework_id int [ref: > production_item_reworks.id]
+  order_item_id int [ref: > order_items.id]
+  performed_by_user_id int [ref: > admin_users.id]
+  production_work_station_id int [ref: > production_work_stations.id]
+  estimated_press_sheet_id int [ref: > press_sheets.id]
+  actual_press_sheet_id int [ref: > press_sheets.id]
+  material_type material_types
+  estimated_material_reference_id varchar [note: 'Reference ID field at time of material capture. Should map to corresponging Pace.InventoryItem']
+  actual_material_reference_id varchar [note: 'Reference ID field at time of material capture. Should map to corresponging Pace.InventoryItem']
+  material_unit_of_measure material_unit_of_measures
+  used_on_timestamp datetime
+  estimated_quantity numeric
+  actual_good_quantity numeric
+  actual_total_quantity numeric
+  actual_waste_quantity numeric
+  press_sheet_sides int
+  auto_approved boolean
+  review_status review_status
+  active boolean
+}
+Table press_sheets {
+  id int PK
+  name varchar
+  press_sheet_type_id int [ref: > press_sheet_types.id]
+}
+Table press_sheet_types {
+  id int PK
+  name varchar
+}
+
+Table admin_users {
+  id int PK
+  username varchar [unique]
+  fname varchar
+  lname varchar
+  email varchar
+}
+

@@ -1,0 +1,227 @@
+Project Collaterate_Production {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # Collaterate Production Tasks
+  **Production Tasks are activities that involved one step of Producing a Production Item**
+  
+  Related entities
+  - Production Work Events
+  - Production Items
+  - Production Tasks have been an integral part of Collaterate Production Items for a long time.  
+
+ 
+  Notes about what this is for, who, what, where.
+
+  _standard markup to format_
+
+  `code bits`
+
+  or 
+
+  ```Code blocks
+  SELECT FROM .....
+  WHERE....
+  ```
+  '''
+}
+
+enum task_status {
+  NOT_STARTED
+  COMPLETE
+  PAUSED
+  IN_PROGRESS
+}
+enum rework_status {
+  REWORK_NEEDED
+  REWORK_COMPLETE
+}
+enum type {
+  PRINTING
+  CUTTING
+  MOUNTING
+  FREE_FORM
+  COMPOSITE
+  LAMINATING
+  OPERATION_DEFINED
+}
+
+Table production_tasks [Note: 'This is a note of this table'] {
+  id int PK
+  created_on timestamp [note: 'Created at time of ORDER or addition by CST in admin']
+  production_task_type_id int [ref: < production_task_types.id]
+  composite_production_task_id int [ref: > production_tasks.id, note: 'COMPOSITE children to assign to Parent']
+  order_item_id int [note: 'Will be NULL when COMPOSITE']
+  production_item_id int [not null, note: 'Gang # when a COMPOSITE task']
+  production_group_id int 
+  order_item_sf_pjc_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_lf_pjc_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_sf_pjc_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  order_item_lf_pjc_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  completed_by_user_id int
+  completed_by_work_station_id int
+  operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  large_format_operation_id int [note: 'WARNING - This foreign key does not support one-to-many as multiple operations items could contribute to Time and Planned Materials']
+  press_color_score_id int 
+  name varchar [note: 'name of Task Type at time of creation']
+  task_code varchar [note: 'Code of Task Type at time of creation']
+  description varchar [note: 'description of Task Type at time of creation']
+  sequence int [not NULL]
+  type type [note: 'will always be COMPOSITE when Parent task of Ganged children']
+  status task_status
+  rework_status rework_status
+  completed_on datetime
+  work_station_family varchar [note: 'will need follow up on when and why..']
+  estimated_production_time_seconds int
+  actual_production_time_seconds int
+  ready boolean  
+  ready_on timestamp [note: 'timestamp when previous task was completed']
+  assigned_work_station_id int [note: 'need to explore this further along with FAMILY']
+  quoted_production_time_seconds numeric(19,2)
+  assigned_production_sequence int 
+  requires_release boolean [note: 'need to follow up....']
+  pre_production boolean
+  active boolean [note: 'FALSE for COMPOSITE children OR when task is deleted (soft delete)']
+}
+
+Table production_task_types {
+  id PK
+  name varchar
+  code varchar
+  description varchar
+  active boolean
+  is_print boolean
+  pre_produciotn boolean
+  hourly_rate numeric(100,10) [note: 'Not currently getting populated or shown in the UI']
+}
+
+Table production_work_stations {
+  id int PK
+  name varchar
+}
+
+
+Table order_item_print_job_classifications {
+  id int PK
+  job_cost_price numeric
+}
+Table admin_users {
+  id int PK
+  username varchar [unique]
+  fname varchar
+  lname varchar
+  email varchar
+}
+Table production_items {
+  id int PK
+  order_item_id int
+  production_print_job_id int
+  parent_id int
+  name varchar
+  identifier text
+  ship_by timestamp
+  print_by timestamp
+  notes varchar
+  error_description varchar
+}
+Table order_items {
+  id int PK
+  name varchar
+  order_id int
+  job_number int
+  child_job_number int
+}
+
+Table activitycode [headercolor: #27ae60, note: 'PACE entity'] {
+  jcmasteid varchar PK
+  jcdescription varchar
+  jccostcenterid varchar
+}
+Table costcenter [headercolor: #27ae60, note: 'PACE entity'] {
+  jccostcenterid varchar PK
+  jcdescription varchar
+  jcdeptid varchar(3)
+}
+Table activityrate [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  activitycode varchar
+  linenumber int
+  machinecost numeric
+  laborcost numeric
+  laboroverhead numeric
+  generaloa numeric
+}
+Table department [headercolor: #27ae60, note: 'PACE entity'] {
+  jcdeptid varchar PK
+  jcdeptdescription varchar
+}
+Table jobplan [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  job varchar
+  part varchar
+  activitycode varchar
+  status int
+}
+Table jobpart [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK
+  ccmasterid varchar PK
+}
+Table job [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK
+  ccmasterid varchar pK
+}
+
+Table u_jobpart [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK
+  ccmasterid varchar PK
+  u_collaterateid varchar
+  u_collateratejob varchar
+  u_kit int
+}
+Table udo_kit [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  description varchar
+  status varchar
+}
+
+tablegroup pace {
+  activitycode
+  costcenter
+  department
+  activityrate
+  u_jobpart
+  job
+  udo_kit
+}
+Ref: "production_tasks"."completed_by_work_station_id" > "production_work_stations"."id"
+
+Ref: "admin_users"."id" < "production_tasks"."completed_by_user_id"
+
+Ref: "production_items"."id" < "production_tasks"."production_item_id"
+
+Ref: "order_items"."id" < "production_tasks"."order_item_id"
+
+Ref: "production_items"."order_item_id" < "order_items"."id"
+
+Ref: "production_task_types"."code" < "activitycode"."jcmasteid"
+
+Ref: "activitycode"."jccostcenterid" < "costcenter"."jccostcenterid"
+
+Ref: "activityrate"."activitycode" < "activitycode"."jcmasteid"
+
+Ref: "costcenter"."jcdeptid" < "department"."jcdeptid"
+
+Ref: "jobplan"."activitycode" < "activitycode"."jcmasteid"
+
+Ref: "jobplan"."job" < "jobpart"."ccmasterid"
+
+Ref: "jobplan"."part" < "jobpart"."ccjobpart"
+
+Ref: "order_items"."id" < "u_jobpart"."u_collaterateid"
+
+Ref: "u_jobpart"."ccjobpart" < "jobpart"."ccjobpart"
+
+Ref: "u_jobpart"."ccmasterid" < "jobpart"."ccmasterid"
+
+Ref: "u_jobpart"."ccmasterid" < "job"."ccmasterid"
+
+Ref: "u_jobpart"."u_kit" < "udo_kit"."id"
