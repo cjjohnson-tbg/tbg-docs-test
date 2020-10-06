@@ -193,7 +193,10 @@ enum material_unit_of_measures {
   EACH
   LINEAR_FEET
 }
-Table production_task_materials {
+Table production_task_materials [note: '''
+  Materials are consumed by Production Tasks and recored within Producer by the Operator. 
+  This does NOT have to be a specific entity as the operator can enter in a value in "Reference ID" field to override any estimated material.  
+  This is to accommodate capturing data for materials not within Collaterate, but rather PACE.'''] {
   id int PK
   created_on datetime [note: 'Timestamp material was consumed on Production Task']
   production_task_id int [ref: > production_tasks.id]
@@ -226,8 +229,22 @@ Table press_sheets {
 Table press_sheet_types {
   id int PK
   name varchar
+  reference_id varchar [note: 'PACE - Rerence ID fields on Materials map to pace.inventoryitems.icmaterid']
+  cost_table_id int PK [ref: - cost_tables.id]
 }
-
+Table cost_tables {
+  id int PK
+  name varchar
+  price numeric(100,10)
+  flatprice boolean
+}
+Table cost_table_points [note: 'To Use when tiered cost structure based on qty. Incorporating this will results in ACCUMULATING costs. Commonly where Set Up costs are captured.'] {
+  id int PK
+  cost_table_id int [ref: < cost_tables.id]
+  price numeric
+  endpoint int [note: 'cost per unit from this point to the next endpoint (unless Flatprice). Result is ACCUMULATING costs.']
+  flatprice boolean [note: 'costs will not accumulate across range to next Endpoint']
+}
 Table admin_users {
   id int PK
   username varchar [unique]
@@ -236,3 +253,4 @@ Table admin_users {
   email varchar
 }
 
+    

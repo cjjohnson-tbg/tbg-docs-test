@@ -1,0 +1,60 @@
+Project Pace {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # Pace
+  **Testing DBDoc\'s program
+
+  '''
+}
+
+Table activitycode [headercolor: #27ae60, note: 'PACE entity'] {
+  jcmasteid varchar PK
+  jcdescription varchar
+  jccostcenterid varchar [ref: > costcenter.jccostcenterid]
+}
+Table activityrate [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  activitycode varchar [ref: > activitycode.jcmasteid]
+  linenumber int [note: 'multiple lines may exists. Line #7 started 2018-01-01. Previous rates were retained under Line #6.']
+  machinecost numeric
+  laborcost numeric
+  laboroverhead numeric
+  generaloa numeric
+}
+Table costcenter [headercolor: #27ae60, note: 'PACE entity'] {
+  jccostcenterid varchar PK
+  jcdescription varchar
+  jcdeptid varchar(3) [ref: > department.jcdeptid]
+}
+Table department [headercolor: #27ae60, note: 'PACE entity'] {
+  jcdeptid varchar PK
+  jcdeptdescription varchar
+}
+Table job [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK
+  ccmasterid varchar pK
+}
+Table jobpart [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK
+  ccmasterid varchar PK
+}
+Table jobplan [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  job varchar [ref: > jobpart.ccmasterid, note: 'Composite Foreign key with Part']
+  part varchar [ref: > jobpart.ccjobpart, note: 'Composite Foreign key with Job']
+  activitycode varchar [ref: < activitycode.jcmasteid]
+  status int
+}
+Table u_jobpart [headercolor: #27ae60, note: 'PACE entity'] {
+  ccjobpart varchar PK [ref: > jobpart.ccjobpart, note: 'Composite Foreign key with Job']
+  ccmasterid varchar PK [ref: > job.ccmasterid, ref: > jobpart.ccmasterid, note: 'Composite Foreign key with Job Part']
+  u_collaterateid varchar
+  u_collateratejob varchar
+  u_kit int [ref: > udo_kit.id]
+}
+Table udo_kit [headercolor: #27ae60, note: 'PACE entity'] {
+  id int PK
+  description varchar
+  status varchar
+}
+
